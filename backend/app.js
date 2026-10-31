@@ -31,6 +31,11 @@ export function createApp(config, options = {}) {
     try {
       const url = new URL(req.url, 'http://backend.invalid');
       if (url.pathname === '/healthz' && req.method === 'GET') { send(200, { status: 'ok' }); return; }
+      if (url.pathname === '/alive' && req.method === 'GET' && !url.search) {
+        if (origin && !config.origins.includes(origin)) throw new AppError('ORIGIN_NOT_ALLOWED', 403, 'This website is not allowed to use the analysis service.');
+        if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+        send(manager.stopping ? 503 : 200, { status: manager.stopping ? 'stopping' : 'alive' }); return;
+      }
       if (url.pathname === '/internal/budget' && req.method === 'POST') {
         const provided = req.headers['x-admin-token'];
         if (origin || !config.adminToken || typeof provided !== 'string' || !timingSafeEqual(digest(provided), digest(config.adminToken))) throw new AppError('FORBIDDEN', 403);
@@ -49,7 +54,7 @@ export function createApp(config, options = {}) {
       if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
       ingress.take();
       if (url.search) throw new AppError('INVALID_PARAMETERS', 400);
-      if (url.pathname === '/v1/capabilities' && req.method === 'GET') { send(200, { enabled: config.enabled, ready: config.enabled && manager.armed, consentVersion: 'youcam-color-v1', maxBytes: config.maxBytes }); return; }
+      if (url.pathname === '/v1/capabilities' && req.method === 'GET') { send(200, { enabled: config.enabled, ready: config.enabled && manager.armed && !manager.stopping, reason: !config.enabled ? 'disabled' : !manager.armed ? 'budget_required' : manager.stopping ? 'unavailable' : 'ready', consentVersion: 'youcam-color-v1', maxBytes: config.maxBytes }); return; }
       const id = url.pathname.match(/^\/v1\/analyses\/([a-f0-9-]{36})$/i)?.[1];
       const token = req.headers.authorization?.replace(/^Bearer /, '');
       if (!validToken(token)) throw new AppError('INVALID_TOKEN', 401, 'Your temporary analysis session is unavailable.');

@@ -15,13 +15,15 @@ export function loadConfig(env = process.env) {
   if (env.YOUCAM_API_BASE_URL && env.YOUCAM_API_BASE_URL !== 'https://yce-api-01.makeupar.com') throw new Error('Only the official YouCam API host is supported.');
   if (enabled && (!env.YOUCAM_API_KEY?.trim() || !uploadHosts.length || !origins.length)) throw new Error('Enabled analysis requires a server API key, frontend origins, and exact upload hosts.');
   if (enabled && (!env.HUEFOLIO_ADMIN_TOKEN || env.HUEFOLIO_ADMIN_TOKEN.length < 32)) throw new Error('A strong server administration token is required.');
-  if (enabled && env.NODE_ENV === 'production' && env.HUEFOLIO_RECONCILE_ON_START === 'false') throw new Error('Production requires budget reconciliation after startup.');
+  if (env.HUEFOLIO_RECONCILE_ON_START !== undefined && !['true', 'false'].includes(env.HUEFOLIO_RECONCILE_ON_START)) throw new Error('HUEFOLIO_RECONCILE_ON_START must be true or false.');
   return {
     enabled, apiKey: env.YOUCAM_API_KEY?.trim() || '', origins, uploadHosts, adminToken: env.HUEFOLIO_ADMIN_TOKEN || '',
     port: integer(env.PORT, 10000, 1, 65535),
     budget: integer(env.HUEFOLIO_API_BUDGET_UNITS, 800, 0, 1000),
-    // Must be set after reconciling provider usage on EVERY process start/deploy.
-    reconcile: env.HUEFOLIO_RECONCILE_ON_START !== 'false',
+    requestLimit: integer(env.YOUCAM_REQUEST_LIMIT, 200, 1, 250),
+    // Startup automatically uses the configured per-process allocation. Operators
+    // can explicitly opt into manual reconciliation instead.
+    reconcile: env.HUEFOLIO_RECONCILE_ON_START === 'true',
     maxConcurrent: integer(env.HUEFOLIO_MAX_CONCURRENT_ANALYSES, 2, 1, 2),
     pollMs: 5000, interactiveMs: 120000, cleanupMs: 600000, resultTtlMs: 900000,
     maxJobs: 100, requestTimeoutMs: 30000, upstreamTimeoutMs: 20000,

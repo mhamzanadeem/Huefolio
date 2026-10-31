@@ -1,6 +1,7 @@
 import { request as httpsRequest } from 'node:https';
 import { lookup } from 'node:dns/promises';
 import { isIP } from 'node:net';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { AppError } from './errors.js';
 
 const API = 'https://yce-api-01.makeupar.com';
@@ -10,6 +11,29 @@ export class WindowLimiter {
     const now = this.now(); this.times = this.times.filter(t => t > now - this.windowMs);
     if (this.times.length >= this.limit) throw new AppError('UPSTREAM_RATE_LIMIT', 429, 'Analysis is busy. Please wait before trying again.', Math.ceil((this.times[0] + this.windowMs - now) / 1000));
     this.times.push(now);
+  }
+}
+// One shared gate covers file registration, task creation, status and deletion.
+// The provider documents 250 / 300s per IP AND access token. Default to 200
+// and pace at 4 requests/second, leaving headroom for other account activity.
+export class ProviderRequestGate {
+  constructor(limiter, { now = Date.now, wait = sleep, intervalMs = 250 } = {}) {
+    this.limiter = limiter; this.now = now; this.wait = wait; this.intervalMs = intervalMs;
+    this.nextAt = 0; this.blockedUntil = 0; this.queue = Promise.resolve();
+  }
+  cooldown(seconds) { this.blockedUntil = Math.max(this.blockedUntil, this.now() + seconds * 1000); }
+  enter() {
+    const admitted = this.queue.then(async () => {
+      const checkCooldown = () => {
+        if (this.blockedUntil > this.now()) throw new AppError('UPSTREAM_RATE_LIMIT', 429, 'Analysis is busy. Please wait before trying again.', Math.ceil((this.blockedUntil - this.now()) / 1000));
+      };
+      checkCooldown();
+      const delay = Math.max(0, this.nextAt - this.now());
+      if (delay) await this.wait(delay);
+      checkCooldown(); this.limiter.take(); this.nextAt = this.now() + this.intervalMs;
+    });
+    this.queue = admitted.catch(() => {});
+    return admitted;
   }
 }
 export function isPublicAddress(ip) {
@@ -61,17 +85,27 @@ export async function uploadSigned(instruction, bytes, hosts, timeoutMs) {
 }
 
 async function boundedJSON(response) {
-  const reader = response.body?.getReader(); if (!reader) throw new AppError('PROVIDER_RESPONSE', 502);
+  const failure = format => {
+    const error = new AppError('PROVIDER_RESPONSE', 502);
+    error.diagnostic = { httpStatus: response.status, format };
+    return error;
+  };
+  const reader = response.body?.getReader(); if (!reader) throw failure('empty_body');
   const parts = []; let size = 0;
   try {
-    while (true) { const { value, done } = await reader.read(); if (done) break; size += value.length; if (size > 262144) throw new AppError('PROVIDER_RESPONSE', 502); parts.push(value); }
-    return JSON.parse(Buffer.concat(parts).toString('utf8'));
-  } catch { throw new AppError('PROVIDER_RESPONSE', 502); }
+    while (true) { const { value, done } = await reader.read(); if (done) break; size += value.length; if (size > 262144) throw failure('body_too_large'); parts.push(value); }
+    if (!size) throw failure('empty_body');
+    let data;
+    try { data = JSON.parse(Buffer.concat(parts).toString('utf8')); } catch { throw failure('invalid_json'); }
+    if (!data || typeof data !== 'object' || Array.isArray(data)) throw failure('invalid_object');
+    return data;
+  } catch (error) { if (error instanceof AppError) throw error; throw failure('interrupted_body'); }
   finally { await reader.cancel().catch(() => {}); }
 }
 function providerFailure(status, body, retryAfter) {
   let error;
-  if (status === 401) error = new AppError('PROVIDER_AUTH', 503, 'Analysis is temporarily unavailable.');
+  if (status === 401) error = new AppError('PROVIDER_AUTH', 503, 'Analysis authentication is unavailable. The service owner must check the YouCam v2 API key.');
+  else if (status === 403) error = new AppError('PROVIDER_FORBIDDEN', 503, 'The provider denied access. The service owner must check API access and account permissions.');
   else if (body?.error_code === 'CreditInsufficiency') error = new AppError('CREDITS_EXHAUSTED', 503, 'Analysis credits are currently unavailable.');
   else if (status === 429) error = new AppError('UPSTREAM_RATE_LIMIT', 429, 'Analysis is busy. Please wait before trying again.', retryAfter);
   else if (body?.error_code === 'OperationInvalid') error = new AppError('CLEANUP_RUNNING', 409);
@@ -80,31 +114,69 @@ function providerFailure(status, body, retryAfter) {
   error.definitiveRejection = [400, 401, 429].includes(status);
   return error;
 }
+function retryDelay(response) {
+  const raw = response.headers.get('retry-after');
+  const seconds = /^\d+$/.test(raw || '') ? Number(raw) : Math.ceil((Date.parse(raw) - Date.now()) / 1000);
+  return Number.isSafeInteger(seconds) ? Math.max(1, seconds) : 300;
+}
 export class YouCamProvider {
-  constructor(config, { fetchImpl = fetch, uploadImpl = uploadSigned, limiter = new WindowLimiter() } = {}) { this.config = config; this.fetch = fetchImpl; this.uploadImpl = uploadImpl; this.limiter = limiter; }
+  constructor(config, { fetchImpl = fetch, uploadImpl = uploadSigned, limiter = new WindowLimiter(config.requestLimit ?? 200, 300000), gate } = {}) {
+    this.config = config; this.fetch = fetchImpl; this.uploadImpl = uploadImpl; this.limiter = limiter;
+    this.gate = gate || new ProviderRequestGate(limiter);
+  }
   async api(path, body) {
-    this.limiter.take();
+    await this.gate.enter();
     let response, data;
     try {
+      // Current YouCam v2 auth is the API key itself. A separate legacy secret
+      // must never be sent, concatenated into the key, or exposed to the browser.
       response = await this.fetch(API + path, { method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${this.config.apiKey}`, ...(body ? { 'Content-Type': 'application/json' } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}), redirect: 'error', signal: AbortSignal.timeout(this.config.upstreamTimeoutMs) });
+      if (response.status === 429) {
+        const retryAfter = retryDelay(response); this.gate.cooldown(retryAfter);
+        await response.body?.cancel().catch(() => {});
+        throw providerFailure(429, null, retryAfter);
+      }
+      if ([401, 403, 404].includes(response.status)) {
+        await response.body?.cancel().catch(() => {});
+        const error = response.status === 404 ? new AppError('PROVIDER_ENDPOINT', 502, 'The provider endpoint is unavailable.') : providerFailure(response.status, null);
+        error.diagnostic = { httpStatus: response.status };
+        throw error;
+      }
       data = await boundedJSON(response);
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw new AppError('PROVIDER_CONNECTION', 502, 'The analysis connection was interrupted. Do not resubmit this photo automatically.');
     }
     if (!response.ok || (data.status !== undefined && data.status !== 200)) {
-      const rawRetry = response.headers.get('retry-after');
-      const seconds = /^\d+$/.test(rawRetry || '') ? Number(rawRetry) : Math.ceil((Date.parse(rawRetry) - Date.now()) / 1000);
-      throw providerFailure(response.status, data, Number.isFinite(seconds) ? Math.max(1, Math.min(seconds, 300)) : 10);
+      const retryAfter = retryDelay(response);
+      if (response.status === 429 || data.status === 429) this.gate.cooldown(retryAfter);
+      const error = providerFailure(response.ok && Number.isInteger(data.status) ? data.status : response.status, data, retryAfter);
+      error.diagnostic = { httpStatus: response.status };
+      throw error;
     }
     return data;
   }
   async register(bytes) {
     const body = await this.api('/s2s/v2.0/file', { files: [{ content_type: 'image/jpg', file_name: 'huefolio-input.jpg', file_size: bytes.length }] });
-    const file = body.files?.[0];
-    if (body.files?.length !== 1 || typeof file?.file_id !== 'string' || !file.file_id || file.file_id.length > 2048 || file.requests?.length !== 1) throw new AppError('PROVIDER_RESPONSE', 502);
+    // Support the flat file schema and the same schema inside a data envelope.
+    // Normalize the envelope only: retain the original file ID and upload instructions.
+    const nested = body.data?.files;
+    const files = body.files === undefined ? nested : body.files;
+    const file = Array.isArray(files) ? files[0] : undefined;
+    const problem = body.files !== undefined && nested !== undefined ? 'ambiguous_envelope'
+      : !Array.isArray(files) || files.length !== 1 ? 'file_count'
+      : typeof file?.file_id !== 'string' || !file.file_id || file.file_id.length > 2048 ? 'file_id'
+      : !Array.isArray(file.requests) || file.requests.length !== 1 ? 'upload_instructions' : null;
+    if (problem) {
+      const error = new AppError('PROVIDER_RESPONSE', 502);
+      error.diagnostic = { format: 'unexpected_file_schema', fileEnvelope: body.files !== undefined ? 'files' : nested !== undefined ? 'data.files' : 'missing', problem };
+      throw error;
+    }
     return file;
   }
+  // Official v2 read-only pricing endpoint: checks bearer-key acceptance without
+  // registering an image, uploading a photo or creating an analysis task.
+  async verifyCredentials() { await this.api('/s2s/v2.0/credit/feature-cost?page_size=1'); }
   async upload(file, bytes) { await this.uploadImpl(file.requests[0], bytes, this.config.uploadHosts, this.config.upstreamTimeoutMs); }
   async submit(fileId) {
     const result = await this.api('/s2s/v2.0/task/skin-tone-analysis', { src_file_id: fileId, face_angle_strictness_level: 'high' });

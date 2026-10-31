@@ -5,7 +5,7 @@ services:
     rootDir: backend
     buildCommand: npm install --omit=dev --no-audit --no-fund
     startCommand: npm start
-    healthCheckPath: /healthz
+    healthCheckPath: /alive
     numInstances: 1
     envVars:
       - key: NODE_ENV
@@ -23,6 +23,6 @@ services:
       - key: HUEFOLIO_ADMIN_TOKEN
         generateValue: true
       - key: HUEFOLIO_RECONCILE_ON_START
-        value: "true"
+        value: "false"
       - key: HUEFOLIO_API_BUDGET_UNITS
         value: "800"

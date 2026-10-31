@@ -6,7 +6,9 @@
   "engines": { "node": ">=22.12.0" },
   "scripts": {
     "start": "node --env-file-if-exists=.env server.js",
-    "check": "node --check server.js && node --check app.js && node --check provider.js && node --check jobs.js && node --check image.js && node --check normalize.js && node --check config.js && node --check arm-budget.js"
+    "verify:youcam": "node --env-file-if-exists=.env verify-provider.js",
+    "setup:local": "node setup-local.js",
+    "check": "node --check server.js && node --check app.js && node --check provider.js && node --check jobs.js && node --check image.js && node --check normalize.js && node --check config.js && node --check arm-budget.js && node --check verify-provider.js && node --check setup-local.js"
   },
   "dependencies": { "sharp": "0.35.5" }
 }

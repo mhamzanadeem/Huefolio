@@ -32,7 +32,8 @@ export class JobManager {
     this.sweep();
     if (this.jobs.has(id)) return { job: this.authorize(id, token), duplicate: true };
     if (!this.config.enabled) throw new AppError('ANALYSIS_DISABLED', 503, 'Connected analysis is not enabled. You can explore sample colors.');
-    if (!this.armed || this.stopping) throw new AppError('ANALYSIS_UNAVAILABLE', 503, 'Analysis is temporarily unavailable. You can explore sample colors.');
+    if (this.stopping) throw new AppError('ANALYSIS_UNAVAILABLE', 503, 'The analysis backend is restarting. Wait for it to start, then check the connection again.');
+    if (!this.armed) throw new AppError('BUDGET_REQUIRED', 503, 'The backend budget has not been initialized for this server process. The operator must initialize it after each backend restart, then check the connection again.');
     if (this.reserved + 20 > this.budget) throw new AppError('BUDGET_EXHAUSTED', 503, 'Analysis credits are currently unavailable.');
     if (this.active >= this.config.maxConcurrent || this.jobs.size >= this.config.maxJobs) throw new AppError('BUSY', 429, 'Analysis is busy. Please try again in a moment.', 15);
     const job = { id, tokenHash: hash(token), stage: 'receiving', createdAt: this.now(), expiresAt: this.now() + this.config.resultTtlMs, result: null, error: null, cancelled: false, active: true, cleanup: 'not_started', taskId: null, mayBeCharged: false };
