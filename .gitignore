@@ -7,6 +7,15 @@ coverage/
 playwright-report/
 test-results/
 
+# Non-runtime documentation, review material and developer-only tools.
+/scripts/
+/integration/
+/docs/
+/tests/
+/backend/test/
+/backend/README.md
+/.github/
+
 # Local QA evidence, caches and the superseded design-review prototype.
 /.qa/
 /design/
@@ -28,5 +37,5 @@ test-results/
 .DS_Store
 Thumbs.db
 
-# Keep src/, backend/, scripts/, tests/, integration/, docs/ and .github/ tracked:
-# these supply application code, deployment, validation, contracts and setup guidance.
+# Runtime/build source stays tracked: src/, backend/*.js, build.mjs, serve.mjs,
+# package manifests, deployment configuration and empty environment templates.

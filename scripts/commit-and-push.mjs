@@ -30,16 +30,15 @@ try {
   execFileSync(process.execPath, ['scripts/release-check.mjs'], { stdio: 'inherit' });
   const current = git('branch', '--show-current').trim();
   if (!current) throw new Error('Detached HEAD: switch to the intended branch first.');
-  const branch = ['main', 'master'].includes(current) ? 'codex/hackathon-readiness' : current;
-  if (branch !== current) git('switch', '-c', branch);
+  if (current !== 'main') throw new Error('Switch to main first. This helper only commits and pushes main; it never creates another branch.');
   for (const group of groups) {
     git('add', '--', ...group.files);
     git('commit', '-m', group.message);
     console.log(`Committed: ${group.message}`);
   }
   console.log('Local grouping complete. Pushing without force. If the network fails, keep the local commits and rerun on this branch.');
-  process.stdout.write(git('push', '-u', 'origin', 'HEAD'));
-  console.log(`Pushed ${branch}. Merge/review that branch before deploying from main.`);
+  process.stdout.write(git('push', '-u', 'origin', 'HEAD:refs/heads/main'));
+  console.log('Pushed main directly.');
 } catch (error) {
   // Git diagnostics contain paths/refs only; do not dump arbitrary child-process output.
   console.error(error.stderr ? String(error.stderr).trim() : error.message);

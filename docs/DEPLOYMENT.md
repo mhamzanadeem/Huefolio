@@ -4,16 +4,16 @@ Targets: source on `https://github.com/mhamzanadeem/Huefolio`, static frontend o
 
 ## Release prerequisites
 
-1. Grant the GitHub connection access to the intended repository and enable Git writes in a trusted workspace. The current connector returns 404 and shell Git cannot resolve github.com; `.git` is read-only here. Only the original README is currently tracked locally.
+1. Grant the GitHub connection access to the intended repository and enable Git writes in a trusted workspace. The current connector returns 404 and Git cannot write `.git/FETCH_HEAD` or `.git/index.lock` here. Application commits now exist locally; verify that they reach remote `main` before deploying.
 2. Connect Vercel and Render, or use their authenticated dashboards/CLIs. Do not send account credentials, API keys or admin tokens in chat or Git commands.
 3. With registry access, run `npm --prefix backend install`, inspect/commit the generated `backend/package-lock.json`, run `npm --prefix backend audit --omit=dev`, then switch Render/CI installation to `npm ci` when the lockfile is present and reviewed. The present blueprint uses `npm install` because a lockfile could not be generated here.
 4. Run the README verification commands. All automated tests use synthetic data and never call the real provider. Resolve failed checks and review [readiness status](HACKATHON-READINESS.md).
 
 ## Publish source to GitHub
 
-From a Git-writable checkout, review the 20 logical groups with `node scripts/commit-and-push.mjs`, then use `node scripts/commit-and-push.mjs --execute` to create the release branch, run release checks, commit and push. Alternatively create `codex/hackathon-readiness` manually and add only the source, test, workflow, configuration and documentation paths. The historical `design/` prototype is retained locally but ignored. Never add `.env`, `.qa`, `node_modules`, `.vercel`, logs, selfies or credentials; `.env.example` files contain empty placeholders only.
+From a Git-writable checkout on `main`, review the logical groups with `node scripts/commit-and-push.mjs`, then use `node scripts/commit-and-push.mjs --execute` to run release checks, commit and push directly to `main`. The helper does not create a separate branch. The historical `design/` prototype is retained locally but ignored. Never add `.env`, `.qa`, `node_modules`, `.vercel`, logs, selfies or credentials; `.env.example` files contain empty placeholders only.
 
-Push that branch to the configured repository and review/merge it into the deployment branch. Confirm on GitHub that `src/`, `backend/`, `scripts/`, `tests/`, `integration/`, README, `render.yaml`, `vercel.json` and `.github/workflows/qa.yml` are present. Run the GitHub QA workflow and verify its checks; a local pass is not a GitHub CI pass. No remote push, commit or merge has been performed by this preparation step.
+Push `main` to the configured repository. Confirm on GitHub that `src/`, `backend/`, `scripts/`, `tests/`, `integration/`, README, `render.yaml`, `vercel.json` and `.github/workflows/qa.yml` are present on main. Run the GitHub QA workflow and verify its checks; a local pass is not a GitHub CI pass. Do not use a force push to replace unrelated remote commits.
 
 ## Deploy Vercel first in labeled sample mode
 

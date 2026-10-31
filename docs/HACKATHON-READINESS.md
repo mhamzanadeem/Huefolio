@@ -36,7 +36,7 @@ Backend workflow tests inject a fake provider and verify file registration, sign
 
 ## Incomplete items
 
-- [ ] Publish the complete source to the configured GitHub repository and verify the remote tree. Only the original README is tracked locally; current application files are present in the working tree but uncommitted.
+- [ ] Publish the complete source to `main` in the configured GitHub repository and verify the remote tree. Application commits now exist locally; their transfer to local/remote `main` is pending verification.
 - [ ] Run the prepared GitHub Actions workflow on the published revision. Workflow preparation is not a CI pass.
 - [ ] Generate/review/commit the backend dependency lockfile and run a current production dependency audit. Sharp itself is pinned; its transitive resolution is not yet locked.
 - [ ] Deploy Vercel frontend and Render backend, record real URLs/deployment IDs and verify anonymous judge access.

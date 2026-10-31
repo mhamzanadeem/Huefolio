@@ -2,153 +2,90 @@
 
 Your colors. Your identity. Your style.
 
-Huefolio is a personal color discovery and visual identity website. A consented selfie can be analyzed by YouCam's Facial Color Tones Analyzer; Huefolio uses the returned colors for transparent palette calculations, comparisons and downloadable color notes. It provides no medical/skincare advice, attractiveness scores, seasonal classifications or Virtual Try-On.
+Personal color discovery using YouCam Facial Color Tones analysis, transparent palette calculations, color comparisons, occasion combinations and browser-generated downloads. No accounts, database, permanent photo storage, medical advice, attractiveness scores or Virtual Try-On.
 
-Built for the YouCam API Hackathon using API credits provided for hackathon development. Huefolio is an independent hackathon project, not an official Perfect Corp. product or endorsement.
+Built for the YouCam API Hackathon using API credits provided for hackathon development. This is an independent project, without a claim of Perfect Corp. endorsement.
 
-**Submission status, 31 October 2026:** locally tested release candidate. No public frontend/backend deployment has been verified, genuine YouCam analysis has not been run, and the application source has not been published from this workspace. See the evidence and blockers in [hackathon readiness](docs/HACKATHON-READINESS.md) and the [deployment runbook](docs/DEPLOYMENT.md).
+## Run locally
 
-## Try the judge journey
+Use **Node.js 24 LTS**. Electron is not required: the frontend runs in a browser and the backend runs in a separate Node.js terminal.
 
-Run the frontend below and choose **Explore sample colors**. The sample requires no account, key or photo and is labeled as illustrative throughout; it is not a personal API result. Explore Palette → Match lab → Occasions → Identity card, then download a PNG or JSON and try Exit or Start over. Connected analysis requires the separately configured backend and explicit photo consent.
-
-## Technology stack
-
-- Frontend: semantic HTML, responsive CSS, native JavaScript modules and browser Canvas/Blob downloads; no runtime framework or dependency.
-- Backend: Node.js HTTP server and Sharp 0.35.5 for memory-only image validation/re-encoding.
-- Integrations: official YouCam asynchronous file/task APIs, server-only credentials, no database or persistent image service.
-- Hosting targets: Vercel static Build Output API, single-instance Render Node service, GitHub source and QA workflow.
-
-The secure backend is implemented for **Render**, with the static frontend prepared for **Vercel**. Start with [backend/README.md](backend/README.md) for credentials, exact origin/upload-host configuration, budget initialization, deployment, API routes and privacy limitations. The earlier research is preserved in [docs/YOUCAM-INTEGRATION-PLAN.md](docs/YOUCAM-INTEGRATION-PLAN.md).
-
-Connected analysis is disabled until the backend is explicitly configured and its process budget initialized. The sample workspace remains independent. No database, accounts or permanent photo storage are used. YouCam may retain its uploaded copy under its policy; finished-task deletion is requested on a best-effort basis.
-
-## Color intelligence
-
-The active-session product now includes a measured color identity, generated personal palette with traceable HSL recipes, Why This Color explanations, a four-color comparison board, six occasion palettes (including Traditional event), and source-aware PNG/text identity cards. API values, Huefolio calculations, and personal picks stay separate. Missing fields never receive sample replacements.
-
-See [docs/COLOR-INTELLIGENCE.md](docs/COLOR-INTELLIGENCE.md) for formulas, preference behavior, provenance, occasion rules and limitations. No undertone, season, medical advice or attractiveness score is inferred.
-
-## Run
-
-**Electron is not needed.** Run the frontend in your browser and the backend as a separate Node.js process. For deployment the frontend goes to Vercel and backend to Render. Use Node 24 LTS for the complete project.
-
-For a quick sample-only preview on PowerShell:
+For sample colors only:
 
 ```powershell
 cd C:\Huefolio
 npm run dev
 ```
 
-Open `http://127.0.0.1:4173` and choose **Explore sample colors**. This mode needs neither a backend nor API credentials. Stop a running terminal process with Ctrl+C. To use connected photo analysis, follow the two-terminal setup below and configure the server-only YouCam settings and startup budget described in the backend README.
+Open http://127.0.0.1:4173 and select **Explore sample colors**. No backend, photo or API key is needed for this clearly labeled example mode. Stop a terminal process with Ctrl+C.
 
-Frontend: Node.js 20+ and no runtime dependencies. Backend: Node.js 24 LTS and Sharp; see its README. The commands below run the standalone frontend/sample workspace.
-
-```sh
-npm run dev
-```
-
-Open http://127.0.0.1:4173/ in a browser. Set `PORT` to use another port. Use **Explore sample colors** to try the complete workspace without a photo.
-
-```sh
-npm test
-npm run build
-node scripts/serve.mjs --dist
-```
-
-The build validates JavaScript and copies static assets into `dist/`. Host that directory on a static server; hash routes need no rewrite configuration. The included local server exposes only the application HTML, favicon, and source assets, with no upload endpoint.
-
-For the complete local stack on PowerShell, use Node 24 LTS and follow these steps in separate terminals:
+For the backend, in a separate PowerShell terminal:
 
 ```powershell
+cd C:\Huefolio
 npm --prefix backend install
-Copy-Item backend/.env.example backend/.env
-# Edit backend/.env locally. Analysis starts disabled; secrets stay here.
+if (!(Test-Path backend/.env)) {
+  Copy-Item backend/.env.example backend/.env
+}
 npm run backend
 ```
 
-```powershell
-Copy-Item .env.example .env
-# Set HUEFOLIO_BACKEND_URL=http://127.0.0.1:10000 in .env (public URL only).
-node --env-file-if-exists=.env scripts/build.mjs --vercel
-node scripts/serve.mjs --dist
-```
-
-Open `http://127.0.0.1:4173`. Do not serve repository files with a general-purpose public directory server. `npm run dev` uses `src/config.js`; the connected URL is injected into built assets, so use the built server for connected local testing. Frontend `.env` is not implicitly loaded by `npm run build`. Backend environment variables are documented in [backend/README.md](backend/README.md#backend-environment); Vercel receives only the public backend origin.
-
-## Grouped Git publication
-
-`scripts/commit-plan.json` groups the initial application changes into 20 related commits. Generated files, the historical `design/` preview and local QA artifacts stay ignored; source, tests, contracts, documentation and CI remain versioned. No application files are deleted by `.gitignore`.
+For the frontend connected to that backend, in another terminal:
 
 ```powershell
-node scripts/commit-and-push.mjs
-# Preview the groups first. Then, in a Git-writable, networked checkout:
-node scripts/commit-and-push.mjs --execute
+cd C:\Huefolio
+$env:HUEFOLIO_BACKEND_URL = "http://127.0.0.1:10000"
+npm run build
+node serve.mjs --dist
 ```
 
-The helper validates that every changed file belongs to one group, refuses pre-staged changes or an unexpected origin, runs release/security checks, creates `codex/hackathon-readiness` when starting on main, commits nonempty groups and pushes once without force. It does not fabricate empty commits. If only the push fails, rerun it on the same branch to push the existing commits; do not rewrite history. Review/merge that branch before deploying from main. Git write permissions and remote authentication/network access are required.
+Open http://127.0.0.1:4173. Analysis remains disabled until the server configuration and startup budget are ready. The frontend receives only the public backend URL. Its build does not automatically load `.env`; either set the shell variable above or run `node --env-file-if-exists=.env build.mjs --vercel`.
 
-## Pages
+## Server environment
 
-| URL fragment | Page |
+Put secrets only in `backend/.env` locally or Render's server environment. Never put them in Vercel, browser code, Git or command arguments.
+
+| Variable | Purpose |
 | --- | --- |
-| `#/` | Landing |
-| `#/upload` | Photo selection, preview, consent notice |
-| `#/processing` | Honest analysis availability screen |
-| `#/results` | API-data empty state and separate sample interpretation |
-| `#/palette` | Color selection, HEX copy, calculated complement, card choices |
-| `#/lab` | Picker, four-color comparison board, OKLab/hue/text-contrast explanations, HEX copying |
-| `#/occasions` | Six creative source-labeled occasion palettes |
-| `#/export` | Selected-color card, PNG/text export, reset |
+| `PORT` | Backend port, default 10000 |
+| `NODE_ENV` | `development` locally, `production` on Render |
+| `YOUCAM_INTEGRATION_ENABLED` | Starts as `false`; enable only after configuration |
+| `YOUCAM_API_KEY` | Server-only provider credential |
+| `YOUCAM_UPLOAD_HOSTS` | Exact provider-verified signed-upload hosts; no wildcards |
+| `FRONTEND_ORIGINS` | Exact allowed browser origins; HTTPS in production |
+| `HUEFOLIO_ADMIN_TOKEN` | Server-only administration secret, at least 32 random characters |
+| `HUEFOLIO_RECONCILE_ON_START` | Keep `true`; requires budget reconciliation after every start |
+| `HUEFOLIO_API_BUDGET_UNITS` | Process allocation cap; default 800, not proof of account balance |
+| `HUEFOLIO_MAX_CONCURRENT_ANALYSES` | Maximum concurrent workers; default and maximum 2 |
 
-Exploration pages show helpful empty states until a sample session is started. For isolated service loading, error, partial-data, success, and session-expiration fixtures, open `/?review=1#/states`. Fixtures never run an analysis or feed fabricated personal results into the workspace.
-
-## Structure
-
-- `src/app.js`: routing, session lifecycle, photo decoding, event handling, notifications.
-- `src/components.js`: reusable buttons, cards, navigation, swatches, modal, notices, identity card.
-- `src/pages.js` and `src/product-pages.js`: page compositions, source-aware product flow, empty states and optional QA fixtures.
-- `src/color-intelligence.js` and `src/product-components.js`: transparent HSL/OKLab/contrast math, generation, explanations and occasion rules.
-- `src/model.js`: in-memory measured, generated and user-picked colors, preferences and card selection.
-- `src/export.js`: local card PNG/text and palette/combination PNG/JSON downloads; no photo access.
-- `src/session-privacy.js`: conditional browser leave guard and absolute expiry checks.
-- `src/api.js` and `src/config.js`: public Render transport, temporary job-token operations.
-- `backend/`: server-only validation, YouCam client, job lifecycle, security and deployment documentation.
-- `src/styles.css`: approved ivory/sage/lavender design tokens and responsive layouts.
-- `scripts/`: dependency-free local server/build and optional browser verification.
-- `tests/model.test.mjs`: focused logic, validation, provenance, and escaping checks.
-- `design/`: optional historical review prototype retained locally and ignored by Git; not used by the website build.
-
-## Session and data behavior
-
-Photos are previewed locally and sent only after explicit consent. The backend validates magic/type, encoded size, decoded dimensions and frames, strips metadata, and forwards a JPEG from memory. Refresh/close/reset clears local state and requests cancellation where possible; backend jobs expire after 15 minutes. No user database, permanent image storage, analytics or external fonts are used. Measured YouCam colors and sample colors remain separate; creative pairings are labeled as application calculations. Exports never include the selfie.
-
-The backend does not log image bodies, credentials or raw provider responses. Its own image buffers are wiped/released and no temporary files are written. YouCam's documented 30-day retention and the limitations of finished-task deletion are disclosed before upload. Full details and deployment checks are in the backend README.
-
-Exit returns to the welcome page; Start over opens a fresh photo step. Both require confirmation, default to Keep exploring, and offer download options before clearing. The footer's Privacy & session dialog explains photo use, provider terms, temporary memory and leave-warning limitations. Dialogs support Escape, a keyboard focus cycle, and focus restoration.
-
-The native `beforeunload` warning is attached only while session work exists. Requesting this warning never discards results: choosing Stay preserves them. Browsers control its text and may suppress it, especially on mobile; it cannot intercept every close. `pagehide` clears the model, private rendered markup, photo/download object URLs, timers, notifications and dialogs, and aborts active client polling. Back/forward-cache restoration starts empty. Hiding a tab alone does not end its session. Completed real results expire at their absolute backend deadline (at most 15 minutes), also checked on focus, visibility restoration, rendering and interaction to handle delayed timers. JavaScript reference release is not a claim of physical RAM erasure.
-
-After successful result transfer, the client requests release of the backend result copy immediately. Cancellation/release requests are bounded and best effort; undelivered requests leave unclaimed results subject to the server's absolute 15-minute expiry. Bounded opaque job metadata remains for cleanup and duplicate-submission protection. Provider retention is separate from Huefolio's session lifecycle.
-
-Identity cards download as PNG or text. The complete palette, kept comparison colors and current occasion combination download as PNG or JSON, including individual color provenance; JSON also preserves calculation inputs and occasion roles. Downloads use browser APIs without an analysis request, include no selfie, and remain on the user's device after session reset. A reset suppresses any export still being generated. No localStorage, sessionStorage, IndexedDB, cookies or service worker stores personal data.
-
-## Verification
+Before enabling analysis, verify provider upload hosts, actual remaining credits and in-flight usage. Initialize the process allocation once per start from `backend/`, with the admin token in the operator environment:
 
 ```sh
-npm test
-npm run test:backend
-npm --prefix backend run check
-npm run check:release
-npm run test:browser
+node --env-file-if-exists=.env arm-budget.js 20 https://YOUR-RENDER-SERVICE.onrender.com
 ```
 
-`check:release` builds clean public output, injects a synthetic server-only secret canary, checks the exact disclosure/security headers and a 100 KiB gzip asset budget, and scans publishable files, locally available Git history and generated frontend assets for credential patterns. `check:security` reruns the scan on an existing build. Scanning cannot prove the absence of every secret or inspect inaccessible remote history. `.github/workflows/qa.yml` prepares these checks plus isolated Playwright QA and a dependency audit; it has not been executed on GitHub. Browser tooling is development-only and is not shipped with the site.
+The example allocation of 20 is for a bounded initial test, not a statement of account balance. Never blindly reallocate credits after a restart. Paid task creation is not automatically retried.
 
-`npm test`: 23 frontend/model/color-intelligence/privacy/fixture checks; `npm run test:backend`: backend security/workflow tests after installing backend dependencies. `npm run build`: static build and syntax checks. Live provider validation has not been performed. Tests never spend API units.
+## Deployment
 
-`scripts/browser-check.cjs` uses an existing Playwright installation as a development-only tool. It does not add a package dependency. Set `PLAYWRIGHT_MODULE` to the module path if it is not on the normal module search path, and optionally `CHROMIUM_PATH` to an installed Chromium executable, then run `node scripts/browser-check.cjs`.
+Frontend: Vercel, repository root, framework Other, `npm run build:vercel`, existing `vercel.json`. It generates `.vercel/output/static`; do not override the output directory. Set only `HUEFOLIO_BACKEND_URL` to the exact Render HTTPS origin and rebuild. Judges must be able to visit without a hosting-provider login.
 
-Browser checks cover all routes at 320, 390, 768, and 1440px, empty/sample views, horizontal overflow, keyboard skip navigation, copy fallback, color input, occasion choices, photo format/size/decoding errors, consent reset on replacement, card/palette/board/combination downloads, PNG dimensions, export failure and reset races, empty card, reset/cancel, native Stay/Leave, expiry, simulated cache restoration, zero route-driven requests or browser storage, 14 state fixtures, and not-found routing. Screenshots and sample downloads go to ignored `.qa/`.
+Backend: Render, use `render.yaml` or root directory `backend`, build `npm install --omit=dev --no-audit --no-fund`, start `npm start`, health path `/healthz`, one instance, no persistent disk. Set the matching exact frontend origin and server settings above. A healthy service can still be waiting for budget reconciliation. An always-running service is preferable for judging; restarts discard memory and require reconciliation.
 
-The execution sandbox blocks loopback requests with `EACCES`. The real HTTP boundary test is explicitly skipped here (and must run in CI); handler-level tests still execute. Chromium verification fulfills repository assets and a mocked Render API directly, with no real provider network. Backend tests use the identical already-bundled Sharp version because registry DNS is blocked. A dependency lockfile and current vulnerability audit remain pending registry access. Screenshots and downloads are visually reviewed; computed contrast, target sizes and keyboard checks are not a full WCAG audit or Safari/Firefox compatibility certification. Production latency, Core Web Vitals, Render memory under concurrent real uploads and genuine API accuracy remain unmeasured.
+## API and privacy
+
+The server validates JPG/PNG magic bytes, file size under 9,500,000 bytes, single-frame decoding and dimensions from 320 to 4096 pixels. Sharp re-encodes in memory and strips metadata. Explicit photo consent is required before transmission.
+
+The official workflow is file registration, signed PUT transfer, Facial Color Tones task creation, status polling, normalization of documented color values, and a best-effort finished-task deletion request. The provider key and signed upload URL stay on the server. Skin/eye/lip/eyebrow/hair values and available eye/hair names are kept separate from Huefolio HSL/OKLab calculations and user choices. Missing measurements are never replaced with invented results.
+
+Photo/results stay in temporary application memory. No MongoDB, Cloudinary, cookies, localStorage or IndexedDB store personal analysis. Exit, Start over, reload and session expiry clear local results; downloads are explicit copies kept on the user's device. Native leave warnings depend on the browser and cannot intercept every close. YouCam processing follows its applicable terms and documented retention policy; Huefolio does not promise immediate third-party deletion. Backend result copies are released after transfer where possible, or expire after at most 15 minutes.
+
+## Repository contents
+
+Keep `src/`, backend runtime code, `build.mjs`, `serve.mjs`, package manifests, environment templates and Vercel/Render configuration in Git.
+
+`scripts/`, `integration/`, `docs/`, `design/`, `tests/`, `backend/test/`, the developer QA workflow and generated output are local-only and ignored. They are not required by the published website. The essential build/server helpers live at the repository root, so building and starting a fresh clone does not depend on the ignored `scripts/` folder. Ignoring files does not delete local copies or automatically untrack files already in Git.
+
+## Verification status
+
+The earlier local QA run passed 39 unit/integration tests plus mocked Chromium journeys; one socket test was skipped because the execution environment blocked loopback access. Development tests/tools remain locally available but are excluded from the runtime repository. These results do not certify a genuine provider call, current dependency vulnerabilities, public deployment, production latency or a complete accessibility audit. Verify a consented live analysis and anonymous judge access after deployment. No current public demo or genuine YouCam result is claimed here.

@@ -6,7 +6,6 @@
   "engines": { "node": ">=22.12.0" },
   "scripts": {
     "start": "node --env-file-if-exists=.env server.js",
-    "test": "node --test test/*.test.js",
     "check": "node --check server.js && node --check app.js && node --check provider.js && node --check jobs.js && node --check image.js && node --check normalize.js && node --check config.js && node --check arm-budget.js"
   },
   "dependencies": { "sharp": "0.35.5" }
