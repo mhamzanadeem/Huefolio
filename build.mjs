@@ -35,10 +35,13 @@ if (publicURL) {
   backendOrigin = u.origin;
 }
 await writeFile('dist/src/config.js', `// Public backend URL only.\nexport const BACKEND_URL = ${JSON.stringify(backendOrigin)};\n`);
+// Keep the exact backend CSP in standard static deployments as well as Build Output API deployments.
+const csp = `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'${backendOrigin ? ' ' + backendOrigin : ''}; object-src 'none'; base-uri 'none'; form-action 'none'`;
+const index = await readFile('dist/index.html', 'utf8');
+await writeFile('dist/index.html', index.replace('<head>', `<head>\n  <meta http-equiv="Content-Security-Policy" content="${csp.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}">`));
 if (process.argv.includes('--vercel')) {
   await mkdir('.vercel/output', { recursive: true });
   await cp('dist', '.vercel/output/static', { recursive: true });
-  const csp = `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; connect-src 'self'${backendOrigin ? ' ' + backendOrigin : ''}; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'`;
-  await writeFile('.vercel/output/config.json', JSON.stringify({ version: 3, routes: [{ src: '/(.*)', headers: { 'Content-Security-Policy': csp, 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store' }, continue: true }, { handle: 'filesystem' }] }, null, 2));
+  await writeFile('.vercel/output/config.json', JSON.stringify({ version: 3, routes: [{ src: '/(.*)', headers: { 'Content-Security-Policy': csp + "; frame-ancestors 'none'", 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'Cache-Control': 'no-store' }, continue: true }, { handle: 'filesystem' }] }, null, 2));
   console.log('Prepared Vercel Build Output API assets with an exact backend CSP origin.');
 }

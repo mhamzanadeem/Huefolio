@@ -103,13 +103,13 @@ The example manual allocation of 20 is for a bounded initial test, not a stateme
 
 ## Deployment
 
-Frontend: Vercel, repository root, framework Other, `npm run build:vercel`, existing `vercel.json`. It generates `.vercel/output/static`; do not override the output directory. Set only `HUEFOLIO_BACKEND_URL` to the exact Render HTTPS origin and rebuild. Judges must be able to visit without a hosting-provider login.
+Frontend: Vercel, repository root, framework Other, `npm run build:vercel`, existing `vercel.json`. The configured static output directory is `dist`; the build also generates `.vercel/output/static` with its routing configuration. Set only `HUEFOLIO_BACKEND_URL` to the exact Render HTTPS origin and rebuild. Judges must be able to visit without a hosting-provider login.
 
 Backend: Render, use `render.yaml` or root directory `backend`, build `npm install --omit=dev --no-audit --no-fund`, start `npm start`, health path `/alive`, one instance, no persistent disk. Set the matching exact frontend origin and server settings above. Automatic budget initialization is the default, including in `render.yaml`. On an existing Render service, change any old `HUEFOLIO_RECONCILE_ON_START=true` setting to `false` to use automatic mode. Restarts discard active sessions and reset the configured process allowance.
 
 ### Deployment environment values
 
-On Vercel, set only the public build variable `HUEFOLIO_BACKEND_URL=https://YOUR-SERVICE.onrender.com` (exact origin, no trailing slash) and redeploy after setting it. Keep the root directory at the repository root and use branch `main` with `npm run build:vercel`. The build generates Vercel's output configuration; do not override the output directory.
+On Vercel, set only the public build variable `HUEFOLIO_BACKEND_URL=https://YOUR-SERVICE.onrender.com` (exact origin, no trailing slash) and redeploy after setting it. Keep the root directory at the repository root and use branch `main` with `npm run build:vercel`. The output directory is explicitly set to dist in vercel.json; change any existing public output override in the dashboard to dist.
 
 Select the top-level repository (`.`) in Vercel's Root Directory picker. The `src` folder contains frontend modules and `src/assets/judge/`, while `index.html`, `package.json`, `build.mjs` and `vercel.json` live at the repository root. It is not a standalone deployment folder. The build copies only frontend files into `.vercel/output/static`; backend source and private environment files are not published. Portrait sources live under `src/assets/judge/` and are served at the unchanged public URL `/assets/judge/portrait-N.png`. Render continues to use `backend` as its independent root directory.
 
@@ -119,7 +119,7 @@ Select the top-level repository (`.`) in Vercel's Root Directory picker. The `sr
 | Framework Preset | Other |
 | Production Branch | `main` |
 | Build Command | `npm run build:vercel` |
-| Output Directory | Leave the override off; generated Build Output API configuration is used |
+| Output Directory | `dist` (declared in `vercel.json`; change any old `public` dashboard override to `dist`) |
 
 On Render, use root directory `backend`, branch `main`, build `npm install --omit=dev --no-audit --no-fund`, start `npm start`, and these environment values:
 
