@@ -1,0 +1,32 @@
+# Generated output and installed dependencies (rebuild/install locally).
+/dist/
+node_modules/
+/.vercel/
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Local QA evidence, caches and the superseded design-review prototype.
+/.qa/
+/design/
+.cache/
+*.log
+
+# Local configuration and credentials. Keep empty environment templates in Git.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Editor/OS metadata.
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Keep src/, backend/, scripts/, tests/, integration/, docs/ and .github/ tracked:
+# these supply application code, deployment, validation, contracts and setup guidance.
