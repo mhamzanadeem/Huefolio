@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#F8F5EF">
+  <meta name="description" content="Huefolio — explore your personal color identity. Your colors. Your identity. Your style.">
+  <title>Huefolio · Your colors. Your identity. Your style.</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/src/styles.css">
+  <script type="module" src="/src/app.js"></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <div id="canvas">
+    <div class="disclosure">Built for the YouCam API Hackathon using API credits provided for hackathon development.</div>
+    <header>
+      <a href="#/" class="brand" aria-label="Huefolio home">huefolio<span aria-hidden="true">✳</span></a>
+      <span class="tagline">Your colors. Your identity. Your style.</span>
+      <button class="quiet" id="end-session" type="button">Exit</button>
+    </header>
+    <nav aria-label="Main navigation" id="navigation"></nav>
+    <div id="demo-banner" class="demo-banner" hidden>Sample workspace · Illustrative colors, not personal analysis.</div>
+    <main id="main" tabindex="-1"></main>
+    <footer><span>Made for your own kind of color.</span><span>Temporary session · Download what you love.</span><button type="button" class="quiet" data-action="privacy">Privacy & session</button></footer>
+  </div>
+  <div id="modal-root"></div>
+  <div id="notifications" role="status" aria-live="polite" aria-atomic="true"></div>
+  <noscript><p class="panel">Please enable JavaScript to explore Huefolio. No photo is sent until you choose one and agree to analysis.</p></noscript>
+</body>
+</html>
