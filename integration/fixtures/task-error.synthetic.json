@@ -1,0 +1,1 @@
+{ "status": 200, "data": { "task_status": "error", "error": "error_no_face", "error_message": "Synthetic example: no face detected." } }

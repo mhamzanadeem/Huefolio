@@ -1,0 +1,7 @@
+{
+  "status": 200,
+  "data": {
+    "task_status": "success",
+    "results": { "color": { "skin_color": "#BA9279" } }
+  }
+}
