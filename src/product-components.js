@@ -24,5 +24,5 @@ export function comparisonCards(session) {
   }).join('')}</div>`;
 }
 export function cardContext(session) {
-  return { measured: session.includeCharacteristics ? measuredColors(session) : [], includeCharacteristics: session.includeCharacteristics, direction: directionNames[session.direction], occasion: session.occasion, selected: selectedCardColors(session) };
+  return { exampleImage: session.profile?.exampleImage || null, measured: session.includeCharacteristics ? measuredColors(session) : [], includeCharacteristics: session.includeCharacteristics, direction: directionNames[session.direction], occasion: session.occasion, selected: selectedCardColors(session) };
 }

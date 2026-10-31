@@ -28,16 +28,16 @@ export async function createCardPNG(colors, demo = true, context = null) {
   text('YOUR PREFERENCES', 80, 1180 + offset, 19);
   text(`Color direction: ${context?.direction || 'Balanced'}`, 80, 1230 + offset, 26); text(`Occasion: ${context?.occasion || 'Not selected'}`, 80, 1275 + offset, 26);
   text('Huefolio suggestions use HSL color calculations, not seasonal or undertone classifications.', 80, 1345 + offset, 20);
-  text(demo ? 'Illustrative sample · Not personal analysis or API results' : 'Measured values: YouCam · Calculated colors: Huefolio · Personal picks: You', 80, 1390 + offset, 22);
+  text(demo ? 'Illustrative sample · Not personal analysis or API results' : context?.exampleImage ? 'AI-generated test portrait · Measured values from YouCam' : 'Measured values: YouCam · Calculated colors: Huefolio · Personal picks: You', 80, 1390 + offset, 22);
   text('Your colors. Your identity. Your style.', 80, 1445 + offset, 22);
   return new Promise((resolve, reject) => canvas.toBlob(blob => { canvas.width = canvas.height = 1; blob ? resolve(blob) : reject(new Error('PNG export failed')); }, 'image/png'));
 }
 export function textSummary(colors, demo = true, context = null) {
-  return ['HUEFOLIO — COLOR NOTES', demo ? 'Illustrative sample. Not personal analysis or API results.' : 'Active-session color identity. Measured values are from YouCam.', '', 'SELECTED PALETTE', ...colors.map(c => `${c.name}: ${c.hex} — ${sourceLabel(c)}${c.recipe ? `; ${c.recipe}; input ${c.anchor.name} ${c.anchor.hex}; ${c.algorithm}` : ''}`), '', demo ? 'SAMPLE REFERENCE COLORS' : 'YOUCAM COLOR PROFILE', ...(context?.measured || []).map(c => `${c.name}${c.apiName ? ` (${c.apiName})` : ''}: ${c.hex}`), ...(!context?.measured?.length ? [context?.includeCharacteristics === false ? 'Profile details omitted by your choice.' : 'No measured profile included.'] : []), '', 'USER PREFERENCES', `Color direction: ${context?.direction || 'Balanced'}`, `Occasion: ${context?.occasion || 'Not selected'}`, '', 'Huefolio calculations are creative suggestions, not YouCam classifications or guaranteed fashion rules.', 'No photo included.', 'Your colors. Your identity. Your style.'].join('\n');
+  return ['HUEFOLIO — COLOR NOTES', demo ? 'Illustrative sample. Not personal analysis or API results.' : context?.exampleImage ? 'AI-generated test portrait. Measured values from YouCam; not a real person’s profile.' : 'Active-session color identity. Measured values are from YouCam.', '', 'SELECTED PALETTE', ...colors.map(c => `${c.name}: ${c.hex} — ${sourceLabel(c)}${c.recipe ? `; ${c.recipe}; input ${c.anchor.name} ${c.anchor.hex}; ${c.algorithm}` : ''}`), '', demo ? 'SAMPLE REFERENCE COLORS' : 'YOUCAM COLOR PROFILE', ...(context?.measured || []).map(c => `${c.name}${c.apiName ? ` (${c.apiName})` : ''}: ${c.hex}`), ...(!context?.measured?.length ? [context?.includeCharacteristics === false ? 'Profile details omitted by your choice.' : 'No measured profile included.'] : []), '', 'USER PREFERENCES', `Color direction: ${context?.direction || 'Balanced'}`, `Occasion: ${context?.occasion || 'Not selected'}`, '', 'Huefolio calculations are creative suggestions, not YouCam classifications or guaranteed fashion rules.', 'No photo included.', 'Your colors. Your identity. Your style.'].join('\n');
 }
-export function collectionDocument(colors, { demo = false, title = 'My color palette', direction = 'Balanced', occasion, roles = [] } = {}) {
+export function collectionDocument(colors, { demo = false, title = 'My color palette', direction = 'Balanced', occasion, roles = [], exampleImage = null } = {}) {
   return {
-    format: 'huefolio-colors-v1', title, illustrativeSample: demo,
+    format: 'huefolio-colors-v1', title, illustrativeSample: demo, ...(exampleImage ? { exampleImage } : {}),
     preferences: { direction, ...(occasion ? { occasion } : {}) },
     colors: colors.map((c, i) => ({ name: c.name, hex: c.hex, source: sourceLabel(c), ...(roles[i] ? { role: roles[i] } : {}), ...(c.apiName ? { apiName: c.apiName } : {}), ...(c.recipe ? { calculation: c.recipe, input: { name: c.anchor.name, hex: c.anchor.hex }, algorithm: c.algorithm } : {}) })),
     note: 'Huefolio calculations are creative suggestions, not YouCam classifications. No photo included.'
@@ -59,7 +59,7 @@ export async function createCollectionPNG(colors, options = {}) {
     ctx.fillStyle = c.hex; ctx.beginPath(); ctx.roundRect(x, y, width, 140, [40, 40, 6, 6]); ctx.fill();
     text(c.role ? `${c.role} / ${c.name}` : c.name, x, y + 173, 22, width); text(c.hex, x, y + 205, 23, width); text(c.source, x, y + 234, 17, width);
   });
-  text(options.demo ? 'Illustrative sample · Not personal analysis or API results' : 'YouCam values, Huefolio calculations and personal choices are labeled separately.', 80, canvas.height - 25, 19);
+  text(options.demo ? 'Illustrative sample · Not personal analysis or API results' : options.exampleImage ? 'AI-generated test portrait · YouCam values and Huefolio suggestions are labeled separately.' : 'YouCam values, Huefolio calculations and personal choices are labeled separately.', 80, canvas.height - 25, 19);
   return new Promise((resolve, reject) => canvas.toBlob(blob => { canvas.width = canvas.height = 1; blob ? resolve(blob) : reject(new Error('PNG export failed')); }, 'image/png'));
 }
 const downloadURLs = new Map();

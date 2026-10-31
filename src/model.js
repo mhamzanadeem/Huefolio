@@ -1,6 +1,6 @@
 import { generatePalette, normalizeHex } from './color-intelligence.js';
 export { normalizeHex, rgb, complement } from './color-intelligence.js';
-export const routes = ['/', '/upload', '/processing', '/results', '/palette', '/lab', '/occasions', '/export'];
+export const routes = ['/', '/upload', '/processing', '/results', '/palette', '/lab', '/occasions', '/style', '/export'];
 export const sampleColors = [
   { name: 'Soft sage', hex: '#A7B59E' }, { name: 'Dusty lilac', hex: '#B4A3C5' },
   { name: 'Muted rose', hex: '#C58F85' }, { name: 'Oat cream', hex: '#E6D8BC' },
@@ -15,7 +15,7 @@ export const occasions = {
   'Traditional event': { title: 'Color with personal meaning.', order: [4, 3, 2], note: 'Follow the cultural context and dress code of your event. These are creative color roles, not cultural rules.' }
 };
 export function createSession() {
-  return { demo: false, profile: null, job: null, expiresAt: null, analysisStage: 'idle', analysisError: '', backendReady: false, photo: null, consent: false, selected: 0, included: sampleColors.map(() => true), occasion: 'Wedding', candidate: '#8C493B', userColors: [], direction: 'balanced', includeCharacteristics: true, exportStatus: 'idle', download: null, uploadError: '', labError: '' };
+  return { demo: false, profile: null, job: null, expiresAt: null, analysisStage: 'idle', analysisError: '', backendReady: false, backendStatus: 'checking', photo: null, judgePortrait: '', consent: false, selected: 0, included: sampleColors.map(() => true), occasion: 'Wedding', wardrobeStyle: 'auto', stylingGender: '', styleCountry: '', makeupPreference: 'auto', customGarments: ['', '', '', '', ''], candidate: '#8C493B', userColors: [], direction: 'balanced', includeCharacteristics: true, exportStatus: 'idle', download: null, uploadError: '', labError: '' };
 }
 export function measuredColors(session) {
   const colors = session.demo ? sampleColors : Array.isArray(session.profile?.colors) ? session.profile.colors : [];
@@ -38,3 +38,16 @@ export function validatePhoto(file) {
   return '';
 }
 export function routeFromHash(hash) { const route = hash.replace(/^#/, '') || '/'; return routes.includes(route) ? route : '/not-found'; }
+
+export function analysisHelp(s) {
+  if (s.job) return 'Your analysis is already running. View it to check or cancel.';
+  if (s.backendReady) return s.photo && s.consent ? 'Sends this photo to YouCam for analysis.' : 'Choose a photo and agree to the notice to continue.';
+  return ({
+    checking: 'Checking the analysis backend…',
+    disabled: 'Live analysis is switched off on the backend. Sample colors are still available.',
+    budget_required: 'The backend is waiting for its operator to initialize the analysis budget.',
+    unconfigured: 'This frontend has no analysis backend configured. Sample colors are still available.',
+    unreachable: 'Cannot reach the analysis backend. Start it, then check the connection again.',
+    unavailable: 'The analysis backend is temporarily unavailable. Check the connection again.'
+  })[s.backendStatus] || 'Connected analysis is currently unavailable.';
+}

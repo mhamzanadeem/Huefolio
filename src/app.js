@@ -6,13 +6,18 @@ import { navigation, modal, notify, clearNotifications } from './components.js';
 import { landing, upload, processing, results, palette, lab, occasionPage, exportPage, notFound, stateGallery } from './pages.js';
 import { createCardPNG, createCollectionPNG, collectionDocument, clearDownloadURLs, downloadBlob, textSummary } from './export.js';
 import { hasSessionData, isSessionExpired, createLeaveGuard } from './session-privacy.js';
+import { judgePortraits } from './judge-portraits.js';
+import { analysisHelp } from './model.js';
+import { BACKEND_URL } from './config.js';
+import { startBackendHeartbeat } from './backend-heartbeat.js';
+import { stylePage, styleIdeas, styleProfiles, countries, makeupPreferences, availableWardrobes } from './style-ideas.js';
 
 let session = createSession(), photoRevision = 0, sessionRevision = 0, dialogTrigger;
-let analysisController = null, resultExpiryTimer, pendingPhoto;
+let analysisController = null, resultExpiryTimer, pendingPhoto, portraitController, readinessRevision = 0;
 const main = document.querySelector('main');
 const qaMode = new URLSearchParams(location.search).get('review') === '1';
-const pageViews = { '/': landing, '/upload': upload, '/processing': processing, '/results': results, '/palette': palette, '/lab': lab, '/occasions': occasionPage, '/export': exportPage };
-const titles = { '/': 'Your colors. Your identity. Your style.', '/upload': 'Your photo', '/processing': 'Analysis', '/results': 'Color results', '/palette': 'My palette', '/lab': 'Color Match Lab', '/occasions': 'Occasion palettes', '/export': 'Identity card' };
+const pageViews = { '/': landing, '/upload': upload, '/processing': processing, '/results': results, '/palette': palette, '/lab': lab, '/occasions': occasionPage, '/style': stylePage, '/export': exportPage };
+const titles = { '/': 'Your colors. Your identity. Your style.', '/upload': 'Your photo', '/processing': 'Analysis', '/results': 'Color results', '/palette': 'My palette', '/lab': 'Color Match Lab', '/occasions': 'Occasion palettes', '/style': 'Outfit & makeup ideas', '/export': 'Identity card' };
 document.querySelector('#modal-root').innerHTML = modal();
 const dialog = document.querySelector('#exit-dialog');
 const privacyDialog = document.querySelector('#privacy-dialog');
@@ -46,6 +51,7 @@ function go(path) {
 }
 function releasePhoto() {
   photoRevision++;
+  portraitController?.abort(); portraitController = null; session.judgePortrait = '';
   if (pendingPhoto) { pendingPhoto.image.src = ''; URL.revokeObjectURL(pendingPhoto.url); pendingPhoto = null; }
   if (session.photo) URL.revokeObjectURL(session.photo.url);
   session.photo = null; session.consent = false; session.photoLoading = false;
@@ -57,8 +63,8 @@ function stopAnalysis() {
   clearTimeout(resultExpiryTimer);
 }
 function clearSession() {
-  const ready = session.backendReady;
-  stopAnalysis(); releasePhoto(); sessionRevision++; session = createSession(); session.backendReady = ready;
+  const ready = session.backendReady, backendStatus = session.backendStatus;
+  stopAnalysis(); releasePhoto(); sessionRevision++; session = createSession(); session.backendReady = ready; session.backendStatus = backendStatus;
   clearDownloadURLs(); clearNotifications(); leaveGuard.sync();
   dialogTrigger = privacyTrigger = null; dialog.close(); privacyDialog.close();
   // Scrub private text and photo markup too, including documents retained in back/forward cache.
@@ -76,10 +82,11 @@ dialog.addEventListener('close', () => { if (dialogTrigger?.isConnected) dialogT
 privacyDialog.addEventListener('close', () => { if (privacyTrigger?.isConnected) privacyTrigger.focus(); });
 document.querySelector('#end-session').addEventListener('click', e => { if (!expireIfNeeded()) openExit(e.currentTarget); });
 
-async function selectPhoto(file) {
+async function selectPhoto(file, exampleId = '') {
   stopAnalysis(); sessionRevision++; session.profile = null; session.expiresAt = null; session.demo = false; session.selected = 0;
   session.analysisStage = 'idle'; session.analysisError = '';
   releasePhoto(); session.uploadError = '';
+  session.judgePortrait = exampleId;
   if (!file) { render(); return; }
   const error = validatePhoto(file);
   if (error) { session.uploadError = error; render({ restore: '#photo' }); return; }
@@ -93,7 +100,7 @@ async function selectPhoto(file) {
     if (photoRevision !== revision) { URL.revokeObjectURL(url); return; }
     // Keep the File only until the consented request has been sent or the session clears.
     if (Math.min(img.naturalWidth, img.naturalHeight) < 320 || Math.max(img.naturalWidth, img.naturalHeight) > 4096) throw new Error('dimensions');
-    session.photo = { url, name: file.name, file };
+    session.photo = { url, name: file.name, file, ...(exampleId ? { exampleId } : {}) };
   } catch {
     URL.revokeObjectURL(url);
     if (photoRevision !== revision) return;
@@ -102,7 +109,31 @@ async function selectPhoto(file) {
   if (photoRevision === revision) {
     pendingPhoto = null;
     session.photoLoading = false;
-    if (route() === '/upload') render({ restore: '#photo' });
+    if (route() === '/upload') render({ restore: exampleId ? '#judge-photo' : '#photo' });
+  }
+}
+
+async function selectJudgePortrait(id) {
+  const portrait = judgePortraits.find(p => p.id === id);
+  if (!portrait) { await selectPhoto(); return; }
+  stopAnalysis(); sessionRevision++; releasePhoto();
+  session.profile = null; session.demo = false; session.expiresAt = null;
+  session.analysisStage = 'idle'; session.analysisError = ''; session.uploadError = '';
+  session.judgePortrait = id; session.photoLoading = true;
+  const revision = photoRevision, controller = new AbortController(); portraitController = controller;
+  render({ restore: '#judge-photo' });
+  try {
+    const response = await fetch(portrait.path, { signal: AbortSignal.any([controller.signal, AbortSignal.timeout(15000)]), credentials: 'omit' });
+    if (!response.ok) throw new Error('portrait unavailable');
+    const blob = await response.blob();
+    if (controller.signal.aborted || revision !== photoRevision) return;
+    portraitController = null;
+    await selectPhoto(new File([blob], `${portrait.name}.png`, { type: 'image/png' }), id);
+  } catch {
+    if (controller.signal.aborted || revision !== photoRevision) return;
+    portraitController = null; session.photoLoading = false; session.judgePortrait = '';
+    session.uploadError = 'The test portrait could not be loaded. Try another portrait or choose your own photo.';
+    if (route() === '/upload') render({ restore: '#judge-photo' });
   }
 }
 
@@ -133,7 +164,7 @@ async function exportCollection(kind, format) {
   const combination = kind === 'combination' ? occasionCombination(workspaceColors(session), session.occasion) : null;
   const colors = kind === 'palette' ? workspaceColors(session) : kind === 'board' ? session.userColors : combination.map(c => c.color);
   if (!colors.length) { notify('Choose colors before downloading.'); return; }
-  const options = { demo: session.demo, title: kind === 'combination' ? `${session.occasion} combination` : kind === 'board' ? 'My selected colors' : 'My color palette', direction: directionNames[session.direction], ...(combination ? { occasion: session.occasion, roles: combination.map(c => c.role) } : {}) };
+  const options = { demo: session.demo, exampleImage: session.profile?.exampleImage || null, title: kind === 'combination' ? `${session.occasion} combination` : kind === 'board' ? 'My selected colors' : 'My color palette', direction: directionNames[session.direction], ...(combination ? { occasion: session.occasion, roles: combination.map(c => c.role) } : {}) };
   const filename = `huefolio-${session.demo ? 'sample-' : ''}${kind}.${format}`, revision = sessionRevision;
   session.download = { kind, status: 'loading' }; render();
   try {
@@ -216,6 +247,27 @@ document.addEventListener('click', async event => {
     render({ restore: `[data-occasion="${session.occasion}"]` });
   }
   if (action === 'download') await exportCard();
+  if (action === 'apply-custom-style') {
+    if ((session.customGarments || []).filter(name => name.trim()).length < 2) { notify('Name at least two outfit pieces.'); document.querySelector('#custom-garment-0')?.focus(); }
+    else { render({ restore: '[data-action="apply-custom-style"]' }); notify('Your outfit color combinations are ready.'); }
+  }
+  if (action === 'download-style' && hasWorkspace(session)) {
+    const kind = trigger.dataset.kind, index = Number(trigger.dataset.index);
+    const look = styleIdeas(session)[kind === 'outfit' ? 'outfits' : kind === 'makeup' ? 'makeup' : '']?.[index];
+    if (!look) return;
+    const revision = sessionRevision; trigger.disabled = true;
+    try {
+      const blob = await createCollectionPNG(look.pieces.map(p => p.color), { demo: session.demo, exampleImage: session.profile?.exampleImage || null, title: `${kind === 'outfit' ? session.occasion : 'Makeup'} · ${look.title}`, direction: 'Huefolio creative styling', roles: look.pieces.map(p => p.role) });
+      if (revision !== sessionRevision) return;
+      downloadBlob(blob, `huefolio-${look.id}.png`); notify('Look prepared. Download requested.');
+    } catch { if (revision === sessionRevision) notify('Could not download this look. Copy the visible color codes instead.'); }
+    finally { if (trigger.isConnected) trigger.disabled = false; }
+  }
+  if (action === 'check-connection') void checkBackend(true);
+  if (action === 'download-test-photo' && session.photo?.exampleId && !session.photoLoading) {
+    try { downloadBlob(session.photo.file, `huefolio-${session.photo.exampleId}.png`); notify('Test photo download requested.'); }
+    catch { notify('Could not download the test photo. Try again.'); }
+  }
   if (['download-palette', 'download-combination', 'download-board'].includes(action) && ['png', 'json'].includes(trigger.dataset.format)) await exportCollection(action.slice(9), trigger.dataset.format);
   if (action === 'download-text') {
     try { downloadBlob(new Blob([textSummary(selectedCardColors(session), session.demo, cardContext(session))], { type: 'text/plain;charset=utf-8' }), session.demo ? 'huefolio-sample-colors.txt' : 'huefolio-colors.txt'); notify('Text summary download requested.'); }
@@ -245,10 +297,16 @@ document.addEventListener('change', event => {
   if (expireIfNeeded()) return;
   const target = event.target;
   if (target.id === 'photo') selectPhoto(target.files[0]);
+  if (target.id === 'judge-photo') void selectJudgePortrait(target.value);
+  if (target.id === 'style-gender' && (Object.hasOwn(styleProfiles, target.value) || target.value === '')) { session.stylingGender = target.value; session.wardrobeStyle = 'auto'; render({ restore: '#style-gender' }); }
+  if (target.id === 'style-country' && (!target.value || countries.some(c => c.code === target.value))) { session.styleCountry = target.value; session.wardrobeStyle = 'auto'; render({ restore: '#style-country' }); }
+  if (target.id === 'makeup-preference' && Object.hasOwn(makeupPreferences, target.value)) { session.makeupPreference = target.value; render({ restore: '#makeup-preference' }); }
+  if (target.id === 'wardrobe-style' && (target.value === 'auto' || availableWardrobes(session).some(([key]) => key === target.value))) { session.wardrobeStyle = target.value; render({ restore: '#wardrobe-style' }); }
+  if (target.id === 'style-occasion' && Object.hasOwn(occasions, target.value)) { session.occasion = target.value; session.exportStatus = 'idle'; render({ restore: '#style-occasion' }); }
   if (target.id === 'consent') {
     session.consent = target.checked;
-    document.querySelector('[data-action="analyze"]').disabled = !session.photo || !session.consent || session.photoLoading || !session.backendReady;
-    document.querySelector('#analysis-help').textContent = !session.backendReady ? 'Connected analysis is currently unavailable.' : session.consent ? 'Sends this photo to YouCam for analysis.' : 'Agree to the notice to continue.';
+    document.querySelector('[data-action="analyze"]').disabled = !session.photo || !session.consent || session.photoLoading || !session.backendReady || Boolean(session.job);
+    document.querySelector('#analysis-help').textContent = analysisHelp(session);
   }
   if (target.matches('[data-include]')) {
     if (target.checked && selectedCardColors(session).length >= 8) { target.checked = false; notify('Choose up to eight colors so your card stays readable.'); return; }
@@ -259,7 +317,14 @@ document.addEventListener('change', event => {
   if (target.id === 'reference') { session.reference = Number(target.value); render({ restore: '#reference' }); }
   if (target.id === 'review-state') { session.reviewState = target.value; render({ restore: '#review-state' }); }
 });
-document.addEventListener('input', event => { if (!expireIfNeeded() && event.target.id === 'picker') updateComparison(event.target.value.toUpperCase()); });
+document.addEventListener('input', event => {
+  if (expireIfNeeded()) return;
+  if (event.target.id === 'picker') updateComparison(event.target.value.toUpperCase());
+  if (event.target.matches('[data-custom-garment]')) {
+    const index = Number(event.target.dataset.customGarment);
+    if (Number.isInteger(index) && index >= 0 && index < 5) session.customGarments[index] = event.target.value.slice(0, 40);
+  }
+});
 document.addEventListener('keydown', event => {
   if (expireIfNeeded()) { event.preventDefault(); return; }
   const activeDialog = privacyDialog.open ? privacyDialog : dialog.open ? dialog : null;
@@ -276,10 +341,35 @@ window.addEventListener('hashchange', () => render({ focus: true }));
 window.addEventListener('pagehide', clearSession);
 window.addEventListener('pageshow', event => { if (event.persisted) { clearSession(); render({ focus: true }); notify('This temporary session has cleared.'); } });
 render();
-capabilities().then(info => { session.backendReady = Boolean(info.enabled && info.ready); if (route() === '/upload') render(); }).catch(() => {});
+void checkBackend();
+startBackendHeartbeat(BACKEND_URL, { onAlive: () => {
+  if (!session.backendReady && ['unreachable', 'unavailable'].includes(session.backendStatus)) return checkBackend();
+} });
+
+async function checkBackend(manual = false) {
+  const revision = ++readinessRevision;
+  session.backendStatus = 'checking'; session.backendReady = false;
+  if (route() === '/upload') render();
+  try {
+    const info = await capabilities(); if (revision !== readinessRevision) return;
+    session.backendReady = Boolean(info.enabled && info.ready);
+    session.backendStatus = session.backendReady ? 'ready' : !info.enabled ? 'disabled' : info.reason === 'unavailable' ? 'unavailable' : 'budget_required';
+  } catch (error) {
+    if (revision !== readinessRevision) return;
+    session.backendReady = false; session.backendStatus = error.code === 'ANALYSIS_DISABLED' ? 'unconfigured' : 'unreachable';
+  }
+  if (route() === '/upload') render({ restore: manual ? session.backendReady ? '#consent' : '[data-action="check-connection"]' : undefined });
+}
 
 async function runAnalysis() {
+  // Readiness can become stale after the operator restarts the backend.
+  // This checks only our server; it never calls YouCam or spends credits.
+  const currentPhoto = session.photo, currentRevision = sessionRevision;
+  await checkBackend();
+  if (currentRevision !== sessionRevision || session.photo !== currentPhoto || !session.photo || !session.consent || session.job || route() !== '/upload') return;
+  if (!session.backendReady) { notify(analysisHelp(session)); return; }
   const job = newJob(), revision = ++sessionRevision;
+  const exampleImage = session.photo.exampleId || null;
   let file = session.photo.file;
   session.job = job; session.analysisStage = 'submitting'; session.analysisError = ''; session.profile = null; session.demo = false;
   const controller = new AbortController(); analysisController = controller;
@@ -308,7 +398,7 @@ async function runAnalysis() {
         const names = { skin_color: 'Skin', eye_color: 'Eyes', lip_color: 'Lips', eyebrow_color: 'Eyebrows', hair_color: 'Hair' };
         const colors = (Array.isArray(status.result?.colors) ? status.result.colors : []).filter(c => c && Object.hasOwn(names, c.field) && typeof c.hex === 'string' && normalizeHex(c.hex)).slice(0, 5).map(c => ({ field: c.field, name: names[c.field], hex: normalizeHex(c.hex), ...(typeof c.apiName === 'string' && /^[A-Za-z/ ]{1,20}$/.test(c.apiName) ? { apiName: c.apiName } : {}) }));
         if (!colors.length) throw new Error('No usable color data was returned.');
-        session.profile = { colors, partial: colors.length < 5 }; session.selected = 0; session.reference = undefined; session.userColors = []; session.exportStatus = 'idle'; session.included = workspaceColors(session).map((c, i) => i < colors.length);
+        session.profile = { colors, partial: colors.length < 5, exampleImage }; session.selected = 0; session.reference = undefined; session.userColors = []; session.exportStatus = 'idle'; session.included = workspaceColors(session).map((c, i) => i < colors.length);
         session.expiresAt = Math.min(Date.now() + 900000, Number.isFinite(status.expiresAt) ? status.expiresAt : Date.now() + 900000);
         resultExpiryTimer = setTimeout(() => { clearSession(); go('/results'); notify('This temporary session has cleared.'); }, Math.max(0, session.expiresAt - Date.now()));
         // The browser now owns the active result. Release the server copy without waiting for exit.
@@ -322,6 +412,8 @@ async function runAnalysis() {
     if (!controller.signal.aborted && revision === sessionRevision) throw new Error('Analysis timed out. It may still complete at YouCam.');
   } catch (error) {
     if (controller.signal.aborted || revision !== sessionRevision) return;
+    if (error.code === 'BUDGET_REQUIRED') { session.backendReady = false; session.backendStatus = 'budget_required'; }
+    if (error.code === 'ANALYSIS_UNAVAILABLE') { session.backendReady = false; session.backendStatus = 'unavailable'; }
     session.analysisStage = 'error'; session.analysisError = error.message || 'Analysis is temporarily unavailable.';
     void cancelAnalysis(job); session.job = null;
     if (route() === '/processing') render();

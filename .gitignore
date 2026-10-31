@@ -37,5 +37,5 @@ test-results/
 .DS_Store
 Thumbs.db
 
-# Runtime/build source stays tracked: src/, backend/*.js, build.mjs, serve.mjs,
+# Runtime/build source stays tracked: src/, assets/judge/, backend/*.js, build.mjs, serve.mjs,
 # package manifests, deployment configuration and empty environment templates.

@@ -4,11 +4,11 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node serve.mjs",
-    "start": "node serve.mjs",
-    "build": "node build.mjs",
-    "build:vercel": "node build.mjs --vercel",
+    "dev": "node --env-file-if-exists=.env build.mjs && node --env-file-if-exists=.env serve.mjs --dist",
+    "start": "npm run dev",
+    "build": "node --env-file-if-exists=.env build.mjs",
+    "build:vercel": "node --env-file-if-exists=.env build.mjs --vercel",
     "backend": "npm --prefix backend start"
   },
-  "engines": { "node": ">=20" }
+  "engines": { "node": ">=22.12.0" }
 }
