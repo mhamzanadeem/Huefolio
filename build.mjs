@@ -22,9 +22,9 @@ console.log(`Built dist/ with ${files.length + 2} static assets. No dependencies
 await mkdir('dist/assets/judge', { recursive: true });
 for (const portrait of judgePortraits) {
   if (!/^\/assets\/judge\/portrait-[1-4]\.png$/.test(portrait.path)) throw new Error('Unexpected judge portrait path.');
-  const relative = portrait.path.slice(1), bytes = await readFile(relative);
+  const relative = portrait.path.slice(1), source = `src/${relative}`, bytes = await readFile(source);
   if (bytes.length >= 9500000 || !bytes.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10])) || bytes.readUInt32BE(16) < 320 || bytes.readUInt32BE(16) > 4096 || bytes.readUInt32BE(20) < 320 || bytes.readUInt32BE(20) > 4096) throw new Error('Invalid judge portrait.');
-  await copyFile(relative, `dist/${relative}`);
+  await copyFile(source, `dist/${relative}`);
 }
 console.log(`Included ${judgePortraits.length} optional AI-generated judge portraits; fetched only on selection.`);
 const publicURL = process.env.HUEFOLIO_BACKEND_URL || '';

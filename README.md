@@ -21,7 +21,7 @@ npm run dev
 
 Open http://127.0.0.1:4173 and select **Explore sample colors**. No backend, photo or API key is needed for this clearly labeled example mode. Stop a terminal process with Ctrl+C.
 
-Judges can also use **Choose an AI-generated test portrait** on the landing page, or the dropdown at the top of the photo page. Four fictional adult portraits are bundled in `assets/judge/`; each loads only after selection. Preview or download a portrait, agree to YouCam processing, then click Continue to analysis. Selecting a portrait never automatically sends it to the backend or consumes an analysis task. Replacing it clears consent.
+Judges can also use **Choose an AI-generated test portrait** on the landing page, or the dropdown at the top of the photo page. Four fictional adult portraits are bundled in `src/assets/judge/`; each loads only after selection. Preview or download a portrait, agree to YouCam processing, then click Continue to analysis. Selecting a portrait never automatically sends it to the backend or consumes an analysis task. Replacing it clears consent.
 
 These bundled synthetic images are public demonstration assets, not stored user selfies or precomputed personal results. Genuine analysis still requires configured/available YouCam service and API credits. Provider face-quality checks may reject a synthetic portrait. Results, cards and exports keep the AI-generated input label separate from API measurements and Huefolio calculations. The separate Explore sample colors flow remains a clearly labeled no-API option.
 
@@ -111,6 +111,16 @@ Backend: Render, use `render.yaml` or root directory `backend`, build `npm insta
 
 On Vercel, set only the public build variable `HUEFOLIO_BACKEND_URL=https://YOUR-SERVICE.onrender.com` (exact origin, no trailing slash) and redeploy after setting it. Keep the root directory at the repository root and use branch `main` with `npm run build:vercel`. The build generates Vercel's output configuration; do not override the output directory.
 
+Select the top-level repository (`.`) in Vercel's Root Directory picker. The `src` folder contains frontend modules and `src/assets/judge/`, while `index.html`, `package.json`, `build.mjs` and `vercel.json` live at the repository root. It is not a standalone deployment folder. The build copies only frontend files into `.vercel/output/static`; backend source and private environment files are not published. Portrait sources live under `src/assets/judge/` and are served at the unchanged public URL `/assets/judge/portrait-N.png`. Render continues to use `backend` as its independent root directory.
+
+| Vercel setting | Value |
+| --- | --- |
+| Root Directory | Repository root (`.`), leave the subdirectory field empty |
+| Framework Preset | Other |
+| Production Branch | `main` |
+| Build Command | `npm run build:vercel` |
+| Output Directory | Leave the override off; generated Build Output API configuration is used |
+
 On Render, use root directory `backend`, branch `main`, build `npm install --omit=dev --no-audit --no-fund`, start `npm start`, and these environment values:
 
 ```dotenv
@@ -127,7 +137,7 @@ YOUCAM_REQUEST_LIMIT=200
 HUEFOLIO_MAX_CONCURRENT_ANALYSES=2
 ```
 
-The 800-unit value is a configurable allowance per backend run, not an account-balance check. Render supplies `PORT`; the application defaults to `10000`. The Blueprint generates the admin token automatically; for manual dashboard setup, copy your existing private token or generate a new one. `YOUCAM_SECRET_KEY` is not needed for these v2 requests. FRONTEND_ORIGINS=* is supported in production and allows browser requests from any origin without cookies or credentialed CORS. You can keep * after deployment. To restrict origins instead, use exact frontend origins without trailing slashes; multiple origins can be comma-separated. Keep credentials on Render. All four static `assets/judge/portrait-*.png` images are required source assets and are copied into the Vercel build.
+The 800-unit value is a configurable allowance per backend run, not an account-balance check. Render supplies `PORT`; the application defaults to `10000`. The Blueprint generates the admin token automatically; for manual dashboard setup, copy your existing private token or generate a new one. `YOUCAM_SECRET_KEY` is not needed for these v2 requests. FRONTEND_ORIGINS=* is supported in production and allows browser requests from any origin without cookies or credentialed CORS. You can keep * after deployment. To restrict origins instead, use exact frontend origins without trailing slashes; multiple origins can be comma-separated. Keep credentials on Render. All four static `src/assets/judge/portrait-*.png` images are required source assets and are copied into the Vercel build.
 
 ### Backend heartbeat
 
@@ -145,7 +155,7 @@ Photo/results stay in temporary application memory. No MongoDB, Cloudinary, cook
 
 ## Repository contents
 
-Keep `src/`, `assets/judge/`, backend runtime code, `build.mjs`, `serve.mjs`, package manifests, environment templates and Vercel/Render configuration in Git.
+Keep `src/`, `src/assets/judge/`, backend runtime code, `build.mjs`, `serve.mjs`, package manifests, environment templates and Vercel/Render configuration in Git.
 
 `scripts/`, `integration/`, `docs/`, `design/`, `tests/`, `backend/test/`, the developer QA workflow and generated output are local-only and ignored. They are not required by the published website. The essential build/server helpers live at the repository root, so building and starting a fresh clone does not depend on the ignored `scripts/` folder. Ignoring files does not delete local copies or automatically untrack files already in Git.
 

@@ -14,7 +14,9 @@ const server = createServer(async (req, res) => {
     if (!(path === '/' || path === '/index.html' || path === '/favicon.svg' || /^\/src\/[a-z0-9-]+\.(js|css)$/.test(path) || /^\/assets\/judge\/portrait-[1-4]\.png$/.test(path))) {
       res.writeHead(404); res.end('Not found'); return;
     }
-    const target = resolve(root, '.' + (path === '/' ? '/index.html' : path));
+    // Source images live with the frontend; builds retain their public /assets URL.
+    const resource = !process.argv.includes('--dist') && /^\/assets\/judge\/portrait-[1-4]\.png$/.test(path) ? '/src' + path : path;
+    const target = resolve(root, '.' + (resource === '/' ? '/index.html' : resource));
     if (!target.startsWith(root + sep)) { res.writeHead(403); res.end(); return; }
     const data = await readFile(target);
     res.writeHead(200, {
