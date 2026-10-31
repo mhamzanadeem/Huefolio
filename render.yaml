@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: huefolio-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install --omit=dev --no-audit --no-fund
+    startCommand: npm start
+    healthCheckPath: /healthz
+    numInstances: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: 24.18.0
+      - key: YOUCAM_INTEGRATION_ENABLED
+        value: "false"
+      - key: YOUCAM_API_KEY
+        sync: false
+      - key: YOUCAM_UPLOAD_HOSTS
+        sync: false
+      - key: FRONTEND_ORIGINS
+        sync: false
+      - key: HUEFOLIO_ADMIN_TOKEN
+        generateValue: true
+      - key: HUEFOLIO_RECONCILE_ON_START
+        value: "true"
+      - key: HUEFOLIO_API_BUDGET_UNITS
+        value: "800"
