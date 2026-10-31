@@ -6,7 +6,7 @@ import { judgePortraits } from './src/judge-portraits.js';
 const workspace = resolve(fileURLToPath(new URL('.', import.meta.url)));
 if (resolve(process.cwd()) !== workspace) throw new Error('Run the build from the Huefolio repository root.');
 // Only these verified generated directories may be replaced. Preserve Vercel project binding.
-for (const relative of ['dist', '.vercel/output/static']) {
+for (const relative of ['dist']) {
   const target = resolve(workspace, relative);
   if (!target.startsWith(workspace + sep) || ![resolve(workspace, 'dist'), resolve(workspace, '.vercel/output/static')].includes(target)) throw new Error('Unsafe build output path.');
   await rm(target, { recursive: true, force: true });
