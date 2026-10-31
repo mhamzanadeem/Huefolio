@@ -16,6 +16,7 @@ const validId = value => typeof value === 'string' && /^[a-f0-9]{8}-[a-f0-9]{4}-
 const validToken = value => typeof value === 'string' && /^[a-f0-9]{64}$/i.test(value);
 const digest = token => createHash('sha256').update(token).digest();
 export function createApp(config, options = {}) {
+  const allowAnyOrigin = config.origins.includes('*');
   const manager = options.manager || new JobManager(config, options.provider || new YouCamProvider(config));
   const ingress = new WindowLimiter(120, 60000);
   const submitLimits = new Map();
@@ -27,13 +28,15 @@ export function createApp(config, options = {}) {
     res.setHeader('Cache-Control', 'no-store'); res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('Referrer-Policy', 'no-referrer'); res.setHeader('Vary', 'Origin');
     const origin = req.headers.origin;
+    const originAllowed = Boolean(origin) && (allowAnyOrigin || config.origins.includes(origin));
+    const corsOrigin = allowAnyOrigin ? '*' : origin;
     let admitted;
     try {
       const url = new URL(req.url, 'http://backend.invalid');
       if (url.pathname === '/healthz' && req.method === 'GET') { send(200, { status: 'ok' }); return; }
       if (url.pathname === '/alive' && req.method === 'GET' && !url.search) {
-        if (origin && !config.origins.includes(origin)) throw new AppError('ORIGIN_NOT_ALLOWED', 403, 'This website is not allowed to use the analysis service.');
-        if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+        if (origin && !originAllowed) throw new AppError('ORIGIN_NOT_ALLOWED', 403, 'This website is not allowed to use the analysis service.');
+        if (origin || allowAnyOrigin) res.setHeader('Access-Control-Allow-Origin', corsOrigin);
         send(manager.stopping ? 503 : 200, { status: manager.stopping ? 'stopping' : 'alive' }); return;
       }
       if (url.pathname === '/internal/budget' && req.method === 'POST') {
@@ -46,8 +49,8 @@ export function createApp(config, options = {}) {
         finally { bytes.fill(0); }
         send(200, { ready: true }); return;
       }
-      if (!origin || !config.origins.includes(origin)) throw new AppError('ORIGIN_NOT_ALLOWED', 403, 'This website is not allowed to use the analysis service.');
-      res.setHeader('Access-Control-Allow-Origin', origin);
+      if (!originAllowed) throw new AppError('ORIGIN_NOT_ALLOWED', 403, 'This website is not allowed to use the analysis service.');
+      res.setHeader('Access-Control-Allow-Origin', corsOrigin);
       res.setHeader('Access-Control-Allow-Methods', 'POST, GET, DELETE, OPTIONS');
       res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Request-Id, X-Huefolio-Consent');
       res.setHeader('Access-Control-Expose-Headers', 'Retry-After');

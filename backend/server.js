@@ -1,5 +1,5 @@
 import { createServer } from 'node:http';
-import { loadConfig } from './config.js';
+import { loadConfig, ConfigurationError } from './config.js';
 import { createApp } from './app.js';
 try {
   const config = loadConfig();
@@ -15,4 +15,7 @@ try {
   server.on('error', () => { console.error('Backend listener failed.'); app.close(); process.exitCode = 1; });
   const stop = () => { app.close(); server.close(); setTimeout(() => process.exit(0), 25000).unref(); };
   process.on('SIGTERM', stop); process.on('SIGINT', stop);
-} catch { console.error('Backend configuration is invalid. Check server environment settings.'); process.exitCode = 1; }
+} catch (error) {
+  console.error(error instanceof ConfigurationError ? `Backend configuration is invalid. ${error.message}` : 'Backend startup failed. Check installed dependencies and server environment settings.');
+  process.exitCode = 1;
+}

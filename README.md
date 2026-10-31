@@ -87,7 +87,7 @@ Put secrets only in `backend/.env` locally or Render's server environment. Never
 | `YOUCAM_SECRET_KEY` | Optional private console secret; not used by current v2 requests |
 | `YOUCAM_REQUEST_LIMIT` | Rolling request cap per 300 seconds; default 200, maximum 250 |
 | `YOUCAM_UPLOAD_HOSTS` | Exact provider-verified signed-upload hosts; no wildcards |
-| `FRONTEND_ORIGINS` | Exact allowed browser origins; HTTPS in production |
+| `FRONTEND_ORIGINS` | `*` allows any browser origin; alternatively use comma-separated exact origins (HTTPS in production) |
 | `HUEFOLIO_ADMIN_TOKEN` | Server-only administration secret, at least 32 random characters |
 | `HUEFOLIO_RECONCILE_ON_START` | Default `false`: initialize the configured allocation automatically; `true` opts into manual mode |
 | `HUEFOLIO_API_BUDGET_UNITS` | Process allocation cap; default 800, not proof of account balance |
@@ -119,7 +119,7 @@ NODE_VERSION=24.18.0
 YOUCAM_INTEGRATION_ENABLED=true
 YOUCAM_API_KEY=<your YouCam v2 API key>
 YOUCAM_UPLOAD_HOSTS=<copy the verified host list from backend/.env>
-FRONTEND_ORIGINS=https://YOUR-PROJECT.vercel.app
+FRONTEND_ORIGINS=*
 HUEFOLIO_ADMIN_TOKEN=<a private random string of at least 32 characters>
 HUEFOLIO_RECONCILE_ON_START=false
 HUEFOLIO_API_BUDGET_UNITS=800
@@ -127,7 +127,7 @@ YOUCAM_REQUEST_LIMIT=200
 HUEFOLIO_MAX_CONCURRENT_ANALYSES=2
 ```
 
-The 800-unit value is a configurable allowance per backend run, not an account-balance check. Render supplies `PORT`; the application defaults to `10000`. The Blueprint generates the admin token automatically; for manual dashboard setup, copy your existing private token or generate a new one. `YOUCAM_SECRET_KEY` is not needed for these v2 requests. Use exact frontend origins, without trailing slashes; multiple approved production/preview origins can be comma-separated. Keep credentials on Render. All four static `assets/judge/portrait-*.png` images are required source assets and are copied into the Vercel build.
+The 800-unit value is a configurable allowance per backend run, not an account-balance check. Render supplies `PORT`; the application defaults to `10000`. The Blueprint generates the admin token automatically; for manual dashboard setup, copy your existing private token or generate a new one. `YOUCAM_SECRET_KEY` is not needed for these v2 requests. FRONTEND_ORIGINS=* is supported in production and allows browser requests from any origin without cookies or credentialed CORS. You can keep * after deployment. To restrict origins instead, use exact frontend origins without trailing slashes; multiple origins can be comma-separated. Keep credentials on Render. All four static `assets/judge/portrait-*.png` images are required source assets and are copied into the Vercel build.
 
 ### Backend heartbeat
 

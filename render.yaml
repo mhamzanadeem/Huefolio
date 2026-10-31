@@ -19,7 +19,7 @@ services:
       - key: YOUCAM_UPLOAD_HOSTS
         sync: false
       - key: FRONTEND_ORIGINS
-        sync: false
+        value: "*"
       - key: HUEFOLIO_ADMIN_TOKEN
         generateValue: true
       - key: HUEFOLIO_RECONCILE_ON_START
